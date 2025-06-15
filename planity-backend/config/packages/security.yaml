@@ -4,14 +4,35 @@ security:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        users_in_memory: { memory: null }
+        # used to reload user from session & other features (e.g. switch_user)
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
     firewalls:
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         main:
             lazy: true
-            provider: users_in_memory
+            provider: app_user_provider
+            # custom_authenticator: App\Security\UserAuthenticator # Replaced by form_login
+
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 604800
+                path: /
+                # by default, the feature is enabled by checking a checkbox in the
+                # login form, uncomment the following line to always enable it.
+                #always_remember_me: true
+            form_login:
+                login_path: app_login
+                check_path: app_login
+                enable_csrf: true
+            logout:
+                path: app_logout
+                # where to redirect after logout
+                # target: app_any_route
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#the-firewall
@@ -22,8 +43,18 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
+        - { path: ^/api/me, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/services/.+, methods: [PUT, DELETE], roles: IS_AUTHENTICATED_FULLY } # Further owner check in controller
+        - { path: ^/api/services/.+, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/salons/.*/services, methods: [POST], roles: IS_AUTHENTICATED_FULLY } # Further owner check in controller
+        - { path: ^/api/salons/.*/services, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/salons, methods: [POST], roles: ROLE_SALON_OWNER }
+        - { path: ^/api/salons, methods: [GET], roles: PUBLIC_ACCESS } # List and Detail
+        # The /api/register/salon is handled by RegistrationController, implicitly public or needs its own rule if secured.
+        # Login path is already implicitly public or handled by its own firewall rules if using json_login.
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
+
 
 when@test:
     security:
